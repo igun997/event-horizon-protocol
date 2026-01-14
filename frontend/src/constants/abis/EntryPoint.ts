@@ -1,0 +1,76 @@
+export const EntryPointABI = [
+  {
+    inputs: [
+      {
+        components: [
+          { internalType: 'address', name: 'sender', type: 'address' },
+          { internalType: 'uint256', name: 'nonce', type: 'uint256' },
+          { internalType: 'bytes', name: 'initCode', type: 'bytes' },
+          { internalType: 'bytes', name: 'callData', type: 'bytes' },
+          { internalType: 'uint256', name: 'callGasLimit', type: 'uint256' },
+          { internalType: 'uint256', name: 'verificationGasLimit', type: 'uint256' },
+          { internalType: 'uint256', name: 'preVerificationGas', type: 'uint256' },
+          { internalType: 'uint256', name: 'maxFeePerGas', type: 'uint256' },
+          { internalType: 'uint256', name: 'maxPriorityFeePerGas', type: 'uint256' },
+          { internalType: 'bytes', name: 'paymasterAndData', type: 'bytes' },
+          { internalType: 'bytes', name: 'signature', type: 'bytes' },
+        ],
+        internalType: 'struct IEntryPoint.UserOperation[]',
+        name: 'ops',
+        type: 'tuple[]',
+      },
+      { internalType: 'address payable', name: 'beneficiary', type: 'address' },
+    ],
+    name: 'handleOps',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: 'sender', type: 'address' },
+      { internalType: 'uint192', name: 'key', type: 'uint192' },
+    ],
+    name: 'getNonce',
+    outputs: [{ internalType: 'uint256', name: 'nonce', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'account', type: 'address' }],
+    name: 'depositTo',
+    outputs: [],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'account', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: 'account', type: 'address' }],
+    name: 'getDepositInfo',
+    outputs: [
+      { internalType: 'uint112', name: 'deposit', type: 'uint112' },
+      { internalType: 'bool', name: 'staked', type: 'bool' },
+      { internalType: 'uint112', name: 'stake', type: 'uint112' },
+      { internalType: 'uint32', name: 'unstakeDelaySec', type: 'uint32' },
+      { internalType: 'uint48', name: 'withdrawTime', type: 'uint48' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address payable', name: 'withdrawAddress', type: 'address' },
+      { internalType: 'uint256', name: 'withdrawAmount', type: 'uint256' },
+    ],
+    name: 'withdrawTo',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const;

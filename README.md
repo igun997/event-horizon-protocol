@@ -335,8 +335,18 @@ game.unpause();
 | `VITE_TOKEN_ADDRESS` | TalismanToken contract address | `0xA51c...` |
 | `VITE_GAME_ADDRESS` | TalismanGame contract address | `0x0B30...` |
 | `VITE_FACTORY_ADDRESS` | TalismanAccountFactory address | `0x9A67...` |
+| `VITE_ENTRYPOINT_ADDRESS` | MockEntryPoint address (ERC-4337) | `0x5FbD...` |
+| `VITE_PAYMASTER_ADDRESS` | TalismanPaymaster address | `0xe7f1...` |
 | `VITE_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID | (from cloud.walletconnect.com) |
 | `VITE_LOCALHOST_RPC_URL` | Local RPC URL | `http://127.0.0.1:8545` |
+
+### ERC-4337 Flow
+
+1. User connects wallet (EOA)
+2. Create smart account via TalismanAccountFactory
+3. Mint tokens to smart account address
+4. Game transactions go through smart account as UserOperations
+5. Paymaster sponsors gas for game transactions
 
 ## Tech Stack
 

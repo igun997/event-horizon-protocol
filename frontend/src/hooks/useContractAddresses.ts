@@ -18,6 +18,8 @@ export function useContractAddresses() {
     tokenAddress: getAddress('TalismanToken'),
     gameAddress: getAddress('TalismanGame'),
     factoryAddress: getAddress('TalismanAccountFactory'),
+    entryPointAddress: getAddress('EntryPoint'),
+    paymasterAddress: getAddress('TalismanPaymaster'),
     getAddress,
   };
 }

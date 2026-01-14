@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { DashGameCanvas, SessionControls } from '../components';
 import { ConnectButton } from '../components/wallet/ConnectButton';
 import { TokenBalance } from '../components/wallet/TokenBalance';
+import { SmartAccountStatus } from '../components/wallet/SmartAccountStatus';
 import {
   useGameSession,
   useGameRewards,
@@ -11,11 +12,13 @@ import {
   useRewardCalculator,
   formatTime,
   useTalismanToken,
+  useSmartAccount,
 } from '../hooks';
 import { formatTokenAmount } from '../utils/format';
 
 export function GamePage() {
   const { isConnected } = useAccount();
+  const { hasAccount, isAccountReady } = useSmartAccount();
   const {
     session,
     isActive,
@@ -136,10 +139,11 @@ export function GamePage() {
             </div>
           </div>
 
-          {/* Right side - Balance & Connect */}
+          {/* Right side - Smart Account, Balance & Connect */}
           <div className="flex items-center gap-3">
             {isConnected && (
               <>
+                <SmartAccountStatus />
                 <Link
                   to="/vesting"
                   className="bg-gray-900/80 backdrop-blur-sm rounded-lg px-4 py-2 border border-purple-500/30 hover:border-purple-400/50 transition-colors"

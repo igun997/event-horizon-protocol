@@ -7,6 +7,11 @@ export type { VestingSchedule } from './useGameRewards';
 export { useSessionTimer, formatTime } from './useSessionTimer';
 export { useRewardCalculator } from './useRewardCalculator';
 
+// ERC-4337 Smart Account hooks
+export { useSmartAccount } from './useSmartAccount';
+export { useUserOperation } from './useUserOperation';
+export type { UserOperation } from './useUserOperation';
+
 // Dash Game hooks
 export { useDashGame } from './useDashGame';
 export { useDashInput } from './useDashInput';

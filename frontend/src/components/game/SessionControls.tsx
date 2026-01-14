@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { useTalismanToken, useGameSession } from '../../hooks';
+import { useTalismanToken, useGameSession, useSmartAccount } from '../../hooks';
 import { formatTokenAmount } from '../../utils/format';
 
 export function SessionControls() {
   const { isConnected } = useAccount();
+  const { hasAccount, isAccountReady, createAccount, isCreating } = useSmartAccount();
   const {
     balance,
     allowance,
@@ -64,6 +65,40 @@ export function SessionControls() {
     );
   }
 
+  // Smart account not created yet
+  if (!hasAccount) {
+    return (
+      <div className="bg-gray-800/50 rounded-xl p-6 border border-yellow-500/20">
+        <div className="text-center mb-4">
+          <h3 className="text-lg font-bold text-white mb-2">Create Smart Account</h3>
+          <p className="text-sm text-gray-400">
+            A smart account is required to play. This enables gasless transactions.
+          </p>
+        </div>
+        <button
+          onClick={createAccount}
+          disabled={isCreating}
+          className="w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold rounded-lg transition-all"
+        >
+          {isCreating ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Creating Account...
+            </span>
+          ) : (
+            'Create Smart Account'
+          )}
+        </button>
+        <p className="mt-3 text-xs text-gray-500 text-center">
+          One-time setup. Gas fee required for account creation.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800/50 rounded-xl p-6 border border-purple-500/20">
       {/* Session cost info */}
@@ -75,7 +110,7 @@ export function SessionControls() {
           </span>
         </div>
         <div className="flex justify-between items-center mt-2">
-          <span className="text-sm text-gray-400">Your Balance</span>
+          <span className="text-sm text-gray-400">Smart Account Balance</span>
           <span className="text-sm text-purple-400">
             {formatTokenAmount(balance ?? 0n)} TLSM
           </span>
@@ -121,7 +156,7 @@ export function SessionControls() {
       {!isActive && (
         <button
           onClick={handleStartClick}
-          disabled={isStarting || !hasEnoughBalance || isApproving}
+          disabled={isStarting || !hasEnoughBalance || isApproving || !isAccountReady}
           className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-purple-500/20 disabled:shadow-none"
         >
           {isStarting ? (

@@ -1,13 +1,22 @@
-import { useEffect } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useEffect, useCallback, useState } from 'react';
+import { useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+import { encodeFunctionData, type Hex } from 'viem';
 import { TalismanTokenABI } from '../constants/abis';
 import { useContractAddresses } from './useContractAddresses';
+import { useSmartAccount } from './useSmartAccount';
+import { useUserOperation } from './useUserOperation';
 
 export function useTalismanToken() {
-  const { address } = useAccount();
+  const { accountAddress, isAccountReady } = useSmartAccount();
   const { tokenAddress, gameAddress } = useContractAddresses();
+  const { executeViaAccount } = useUserOperation();
 
-  // Read: Balance
+  // Track approve transaction
+  const [approveHash, setApproveHash] = useState<Hex | undefined>();
+  const [approveError, setApproveError] = useState<Error | null>(null);
+  const [isApprovePending, setIsApprovePending] = useState(false);
+
+  // Read: Balance of smart account
   const {
     data: balance,
     refetch: refetchBalance,
@@ -16,11 +25,11 @@ export function useTalismanToken() {
     address: tokenAddress,
     abi: TalismanTokenABI,
     functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: accountAddress ? [accountAddress] : undefined,
+    query: { enabled: !!accountAddress },
   });
 
-  // Read: Allowance for Game contract
+  // Read: Allowance from smart account to Game contract
   const {
     data: allowance,
     refetch: refetchAllowance,
@@ -29,61 +38,79 @@ export function useTalismanToken() {
     address: tokenAddress,
     abi: TalismanTokenABI,
     functionName: 'allowance',
-    args: address ? [address, gameAddress] : undefined,
-    query: { enabled: !!address },
+    args: accountAddress ? [accountAddress, gameAddress] : undefined,
+    query: { enabled: !!accountAddress },
   });
 
-  // Write: Approve
-  const {
-    writeContract: approveWrite,
-    data: approveHash,
-    isPending: isApproving,
-    error: approveError,
-    reset: resetApprove,
-  } = useWriteContract();
-
+  // Wait for approve transaction
   const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } =
-    useWaitForTransactionReceipt({
-      hash: approveHash,
-    });
+    useWaitForTransactionReceipt({ hash: approveHash });
 
   // Auto-refetch when approve succeeds
   useEffect(() => {
     if (isApproveSuccess) {
       refetchAllowance();
       refetchBalance();
+      setIsApprovePending(false);
     }
   }, [isApproveSuccess, refetchAllowance, refetchBalance]);
 
-  const approveGame = async (amount: bigint) => {
-    resetApprove();
-    approveWrite({
-      address: tokenAddress,
-      abi: TalismanTokenABI,
-      functionName: 'approve',
-      args: [gameAddress, amount],
-    });
-  };
+  // Approve via smart account
+  const approveGame = useCallback(async (amount: bigint) => {
+    if (!isAccountReady) return;
+
+    setApproveError(null);
+    setApproveHash(undefined);
+    setIsApprovePending(true);
+
+    try {
+      const callData = encodeFunctionData({
+        abi: TalismanTokenABI,
+        functionName: 'approve',
+        args: [gameAddress, amount],
+      });
+
+      const hash = await executeViaAccount(tokenAddress, 0n, callData);
+      setApproveHash(hash);
+    } catch (err) {
+      setApproveError(err instanceof Error ? err : new Error('Approve failed'));
+      setIsApprovePending(false);
+    }
+  }, [isAccountReady, tokenAddress, gameAddress, executeViaAccount]);
+
+  // Reset approve state
+  const resetApprove = useCallback(() => {
+    setApproveError(null);
+    setApproveHash(undefined);
+    setIsApprovePending(false);
+  }, []);
 
   // Check if approval is needed
-  const needsApproval = (amount: bigint) => {
+  const needsApproval = useCallback((amount: bigint) => {
     if (!allowance) return true;
     return allowance < amount;
-  };
+  }, [allowance]);
 
   // Refetch all data
-  const refetchAll = () => {
+  const refetchAll = useCallback(() => {
     refetchBalance();
     refetchAllowance();
-  };
+  }, [refetchBalance, refetchAllowance]);
 
   return {
+    // Smart account address (tokens are held here)
+    accountAddress,
+    // Token data
     balance: balance ?? 0n,
     allowance: allowance ?? 0n,
+    // Actions
     approveGame,
-    isApproving: isApproving || isApproveConfirming,
+    resetApprove,
+    // States
+    isApproving: isApprovePending || isApproveConfirming,
     isApproveSuccess,
     approveError,
+    // Utilities
     needsApproval,
     refetchBalance,
     refetchAllowance,

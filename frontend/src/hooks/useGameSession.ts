@@ -1,7 +1,10 @@
-import { useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useEffect, useCallback, useState } from 'react';
+import { useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+import { encodeFunctionData, type Hex } from 'viem';
 import { TalismanGameABI } from '../constants/abis';
 import { useContractAddresses } from './useContractAddresses';
+import { useSmartAccount } from './useSmartAccount';
+import { useUserOperation } from './useUserOperation';
 
 export interface GameSession {
   startTime: bigint;
@@ -12,10 +15,26 @@ export interface GameSession {
 }
 
 export function useGameSession() {
-  const { address } = useAccount();
+  const { accountAddress, hasAccount, isAccountReady } = useSmartAccount();
   const { gameAddress } = useContractAddresses();
+  const { executeViaAccount, isPending: isUserOpPending, reset: resetUserOp } = useUserOperation();
 
-  // Read: Current session
+  // Track transaction hashes for waiting
+  const [startHash, setStartHash] = useState<Hex | undefined>();
+  const [endHash, setEndHash] = useState<Hex | undefined>();
+  const [retryHash, setRetryHash] = useState<Hex | undefined>();
+
+  // Track errors
+  const [startError, setStartError] = useState<Error | null>(null);
+  const [endError, setEndError] = useState<Error | null>(null);
+  const [retryError, setRetryError] = useState<Error | null>(null);
+
+  // Track pending states
+  const [isStartPending, setIsStartPending] = useState(false);
+  const [isEndPending, setIsEndPending] = useState(false);
+  const [isRetryPending, setIsRetryPending] = useState(false);
+
+  // Read: Current session (using smart account address)
   const {
     data: session,
     refetch: refetchSession,
@@ -24,8 +43,8 @@ export function useGameSession() {
     address: gameAddress,
     abi: TalismanGameABI,
     functionName: 'getSession',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: accountAddress ? [accountAddress] : undefined,
+    query: { enabled: !!accountAddress },
   });
 
   // Read: Session cost
@@ -56,62 +75,31 @@ export function useGameSession() {
     functionName: 'maxSessionDuration',
   });
 
-  // Read: Attempt count
+  // Read: Attempt count (using smart account address)
   const { data: attemptCount, refetch: refetchAttemptCount } = useReadContract({
     address: gameAddress,
     abi: TalismanGameABI,
     functionName: 'getAttemptCount',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: accountAddress ? [accountAddress] : undefined,
+    query: { enabled: !!accountAddress },
   });
 
-  // Write: Start session
-  const {
-    writeContract: startSessionWrite,
-    data: startHash,
-    isPending: isStartPending,
-    error: startError,
-    reset: resetStart,
-  } = useWriteContract();
-
+  // Wait for transaction receipts
   const { isLoading: isStartConfirming, isSuccess: isStartSuccess } =
-    useWaitForTransactionReceipt({
-      hash: startHash,
-    });
-
-  // Write: End session
-  const {
-    writeContract: endSessionWrite,
-    data: endHash,
-    isPending: isEndPending,
-    error: endError,
-    reset: resetEnd,
-  } = useWriteContract();
+    useWaitForTransactionReceipt({ hash: startHash });
 
   const { isLoading: isEndConfirming, isSuccess: isEndSuccess } =
-    useWaitForTransactionReceipt({
-      hash: endHash,
-    });
-
-  // Write: Retry game
-  const {
-    writeContract: retryGameWrite,
-    data: retryHash,
-    isPending: isRetryPending,
-    error: retryError,
-    reset: resetRetry,
-  } = useWriteContract();
+    useWaitForTransactionReceipt({ hash: endHash });
 
   const { isLoading: isRetryConfirming, isSuccess: isRetrySuccess } =
-    useWaitForTransactionReceipt({
-      hash: retryHash,
-    });
+    useWaitForTransactionReceipt({ hash: retryHash });
 
   // Auto-refetch when start session succeeds
   useEffect(() => {
     if (isStartSuccess) {
       refetchSession();
       refetchAttemptCount();
+      setIsStartPending(false);
     }
   }, [isStartSuccess, refetchSession, refetchAttemptCount]);
 
@@ -119,6 +107,7 @@ export function useGameSession() {
   useEffect(() => {
     if (isEndSuccess) {
       refetchSession();
+      setIsEndPending(false);
     }
   }, [isEndSuccess, refetchSession]);
 
@@ -126,39 +115,95 @@ export function useGameSession() {
   useEffect(() => {
     if (isRetrySuccess) {
       refetchAttemptCount();
+      setIsRetryPending(false);
     }
   }, [isRetrySuccess, refetchAttemptCount]);
 
+  // Start session via smart account
   const startSession = useCallback(async () => {
-    resetStart();
-    startSessionWrite({
-      address: gameAddress,
-      abi: TalismanGameABI,
-      functionName: 'startSession',
-    });
-  }, [gameAddress, startSessionWrite, resetStart]);
+    if (!isAccountReady) return;
 
-  const endSession = useCallback(
-    async (talismansCollected: number) => {
-      resetEnd();
-      endSessionWrite({
-        address: gameAddress,
+    setStartError(null);
+    setStartHash(undefined);
+    setIsStartPending(true);
+
+    try {
+      const callData = encodeFunctionData({
+        abi: TalismanGameABI,
+        functionName: 'startSession',
+      });
+
+      const hash = await executeViaAccount(gameAddress, 0n, callData);
+      setStartHash(hash);
+    } catch (err) {
+      setStartError(err instanceof Error ? err : new Error('Start session failed'));
+      setIsStartPending(false);
+    }
+  }, [isAccountReady, gameAddress, executeViaAccount]);
+
+  // End session via smart account
+  const endSession = useCallback(async (talismansCollected: number) => {
+    if (!isAccountReady) return;
+
+    setEndError(null);
+    setEndHash(undefined);
+    setIsEndPending(true);
+
+    try {
+      const callData = encodeFunctionData({
         abi: TalismanGameABI,
         functionName: 'endSession',
         args: [BigInt(talismansCollected)],
       });
-    },
-    [gameAddress, endSessionWrite, resetEnd]
-  );
 
+      const hash = await executeViaAccount(gameAddress, 0n, callData);
+      setEndHash(hash);
+    } catch (err) {
+      setEndError(err instanceof Error ? err : new Error('End session failed'));
+      setIsEndPending(false);
+    }
+  }, [isAccountReady, gameAddress, executeViaAccount]);
+
+  // Retry game via smart account
   const retryGame = useCallback(async () => {
-    resetRetry();
-    retryGameWrite({
-      address: gameAddress,
-      abi: TalismanGameABI,
-      functionName: 'retryGame',
-    });
-  }, [gameAddress, retryGameWrite, resetRetry]);
+    if (!isAccountReady) return;
+
+    setRetryError(null);
+    setRetryHash(undefined);
+    setIsRetryPending(true);
+
+    try {
+      const callData = encodeFunctionData({
+        abi: TalismanGameABI,
+        functionName: 'retryGame',
+      });
+
+      const hash = await executeViaAccount(gameAddress, 0n, callData);
+      setRetryHash(hash);
+    } catch (err) {
+      setRetryError(err instanceof Error ? err : new Error('Retry game failed'));
+      setIsRetryPending(false);
+    }
+  }, [isAccountReady, gameAddress, executeViaAccount]);
+
+  // Reset functions
+  const resetStart = useCallback(() => {
+    setStartError(null);
+    setStartHash(undefined);
+    setIsStartPending(false);
+  }, []);
+
+  const resetEnd = useCallback(() => {
+    setEndError(null);
+    setEndHash(undefined);
+    setIsEndPending(false);
+  }, []);
+
+  const resetRetry = useCallback(() => {
+    setRetryError(null);
+    setRetryHash(undefined);
+    setIsRetryPending(false);
+  }, []);
 
   // Derived state
   const isActive = session?.isActive ?? false;
@@ -171,6 +216,11 @@ export function useGameSession() {
   })();
 
   return {
+    // Smart account info
+    accountAddress,
+    hasAccount,
+    isAccountReady,
+    // Session data
     session: session as GameSession | undefined,
     sessionCost: sessionCost ?? 0n,
     rewardRate: rewardRate ?? 0n,
@@ -180,20 +230,27 @@ export function useGameSession() {
     isActive,
     startTime,
     canEndSession,
+    // Actions
     startSession,
     endSession,
     retryGame,
+    // Loading states
     isStarting: isStartPending || isStartConfirming,
     isEnding: isEndPending || isEndConfirming,
     isRetrying: isRetryPending || isRetryConfirming,
+    // Success states
     isStartSuccess,
     isEndSuccess,
     isRetrySuccess,
+    // Errors
     startError,
     endError,
     retryError,
+    // Utilities
     refetchSession,
     isLoading: isSessionLoading,
     resetRetry,
+    resetStart,
+    resetEnd,
   };
 }

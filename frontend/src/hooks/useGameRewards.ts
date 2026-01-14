@@ -1,7 +1,10 @@
-import { useEffect, useCallback } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useEffect, useCallback, useState } from 'react';
+import { useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+import { encodeFunctionData, type Hex } from 'viem';
 import { TalismanGameABI } from '../constants/abis';
 import { useContractAddresses } from './useContractAddresses';
+import { useSmartAccount } from './useSmartAccount';
+import { useUserOperation } from './useUserOperation';
 
 export interface VestingSchedule {
   totalAmount: bigint;
@@ -11,10 +14,16 @@ export interface VestingSchedule {
 }
 
 export function useGameRewards() {
-  const { address } = useAccount();
+  const { accountAddress, isAccountReady } = useSmartAccount();
   const { gameAddress } = useContractAddresses();
+  const { executeViaAccount } = useUserOperation();
 
-  // Read: Vesting info
+  // Track claim transaction
+  const [claimHash, setClaimHash] = useState<Hex | undefined>();
+  const [claimError, setClaimError] = useState<Error | null>(null);
+  const [isClaimPending, setIsClaimPending] = useState(false);
+
+  // Read: Vesting info (using smart account address)
   const {
     data: vestingInfo,
     refetch: refetchVesting,
@@ -23,8 +32,8 @@ export function useGameRewards() {
     address: gameAddress,
     abi: TalismanGameABI,
     functionName: 'getVestingInfo',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    args: accountAddress ? [accountAddress] : undefined,
+    query: { enabled: !!accountAddress },
   });
 
   // Read: Claimable amount (poll frequently)
@@ -36,9 +45,9 @@ export function useGameRewards() {
     address: gameAddress,
     abi: TalismanGameABI,
     functionName: 'getClaimableAmount',
-    args: address ? [address] : undefined,
+    args: accountAddress ? [accountAddress] : undefined,
     query: {
-      enabled: !!address,
+      enabled: !!accountAddress,
       refetchInterval: 5000, // Poll every 5 seconds
     },
   });
@@ -50,36 +59,47 @@ export function useGameRewards() {
     functionName: 'vestingDuration',
   });
 
-  // Write: Claim rewards
-  const {
-    writeContract: claimWrite,
-    data: claimHash,
-    isPending: isClaimPending,
-    error: claimError,
-    reset: resetClaim,
-  } = useWriteContract();
-
+  // Wait for claim transaction
   const { isLoading: isClaimConfirming, isSuccess: isClaimSuccess } =
-    useWaitForTransactionReceipt({
-      hash: claimHash,
-    });
+    useWaitForTransactionReceipt({ hash: claimHash });
 
   // Auto-refetch when claim succeeds
   useEffect(() => {
     if (isClaimSuccess) {
       refetchVesting();
       refetchClaimable();
+      setIsClaimPending(false);
     }
   }, [isClaimSuccess, refetchVesting, refetchClaimable]);
 
+  // Claim rewards via smart account
   const claimRewards = useCallback(async () => {
-    resetClaim();
-    claimWrite({
-      address: gameAddress,
-      abi: TalismanGameABI,
-      functionName: 'claimRewards',
-    });
-  }, [gameAddress, claimWrite, resetClaim]);
+    if (!isAccountReady) return;
+
+    setClaimError(null);
+    setClaimHash(undefined);
+    setIsClaimPending(true);
+
+    try {
+      const callData = encodeFunctionData({
+        abi: TalismanGameABI,
+        functionName: 'claimRewards',
+      });
+
+      const hash = await executeViaAccount(gameAddress, 0n, callData);
+      setClaimHash(hash);
+    } catch (err) {
+      setClaimError(err instanceof Error ? err : new Error('Claim failed'));
+      setIsClaimPending(false);
+    }
+  }, [isAccountReady, gameAddress, executeViaAccount]);
+
+  // Reset claim state
+  const resetClaim = useCallback(() => {
+    setClaimError(null);
+    setClaimHash(undefined);
+    setIsClaimPending(false);
+  }, []);
 
   // Refetch all rewards data
   const refetchAll = useCallback(() => {
@@ -116,15 +136,23 @@ export function useGameRewards() {
   })();
 
   return {
+    // Smart account address
+    accountAddress,
+    // Vesting data
     vestingInfo: vestingInfo as VestingSchedule | undefined,
     claimableAmount: claimableAmount ?? 0n,
     vestingDuration: vestingDuration ?? 0n,
+    // Actions
     claimRewards,
+    resetClaim,
+    // States
     isClaiming: isClaimPending || isClaimConfirming,
     isClaimSuccess,
     claimError,
+    // Computed
     hasClaimable,
     vestingProgress,
+    // Utilities
     refetchVesting,
     refetchClaimable,
     refetchAll,
