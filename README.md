@@ -1,73 +1,144 @@
-# Hardhat Boilerplate
+# Dash Game
 
-A production-ready Hardhat boilerplate with TypeScript, Bun, multi-network support, and best practices.
+A blockchain-based endless runner game where players run, jump over obstacles, and collect talismans for bonus rewards. Built with ERC-4337 Account Abstraction for gasless gameplay.
 
-## Use This Template
+## Game Overview
+
+Players pay TLSM tokens to start a game session. Run as far as you can, jump over obstacles, and collect talismans. Collected talismans provide a bonus multiplier to your time-based rewards. Rewards are distributed through a linear vesting schedule.
+
+### How It Works
+
+1. **Start Session** - Pay 10 TLSM to begin a game session
+2. **Play Game** - Run, jump obstacles, collect talismans (10% bonus each, max 200%)
+3. **Retry or Cash Out** - When you crash, retry for another 10 TLSM or end the session
+4. **End Session** - Stop playing and lock in your rewards (min 1 minute, max 1 hour)
+5. **Vesting** - Rewards vest linearly over 7 days
+6. **Claim** - Withdraw vested rewards anytime
+
+### Controls
+
+- **Space** or **Tap** - Jump over obstacles
+
+## Smart Contracts
+
+| Contract | Description |
+|----------|-------------|
+| `TalismanToken` | ERC-20 TLSM token for payments and rewards |
+| `TalismanGame` | Core game logic: sessions, rewards, vesting |
+| `TalismanAccount` | ERC-4337 smart wallet for players |
+| `TalismanAccountFactory` | Creates player smart accounts |
+| `TalismanPaymaster` | Sponsors gas for game transactions |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      ERC-4337 Layer                         │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │ EntryPoint  │  │   Paymaster  │  │  Account Factory  │  │
+│  └─────────────┘  └──────────────┘  └───────────────────┘  │
+│         │                │                    │             │
+│         ▼                ▼                    ▼             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              TalismanAccount (Smart Wallet)          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Game Layer                            │
+│  ┌─────────────────┐          ┌─────────────────────────┐  │
+│  │  TalismanToken  │◄────────►│     TalismanGame        │  │
+│  │     (TLSM)      │          │  - Sessions             │  │
+│  └─────────────────┘          │  - Rewards              │  │
+│                               │  - Vesting              │  │
+│                               └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Session Cost | 10 TLSM | Cost to start a game |
+| Reward Rate | ~1 TLSM/min | Tokens earned per minute |
+| Min Session | 1 minute | Minimum play time |
+| Max Session | 1 hour | Maximum play time (rewards capped) |
+| Vesting Period | 7 days | Linear unlock duration |
+
+## Installation
 
 ```bash
-# Using degit (recommended)
-bunx degit cds-id/syuper-bilierplit my-project
-cd my-project
+# Install dependencies
 bun install
 
-# Or using git clone
-git clone https://github.com/cds-id/syuper-bilierplit.git my-project
-cd my-project
-rm -rf .git
-bun install
-git init
-```
-
-## Features
-
-- Solidity 0.8.20 with optimizer and viaIR enabled
-- TypeScript support with TypeChain
-- Bun as package manager (fast installs)
-- Multi-network configuration (local, testnet, mainnet)
-- OpenZeppelin contracts included
-- Gas reporting and coverage tools
-- Contract verification support (Etherscan, Basescan)
-- No `.env` file - uses Hardhat vars for secure configuration
-
-## Project Structure
-
-```
-├── contracts/          # Solidity smart contracts
-├── scripts/            # Deployment scripts
-├── test/               # Test files
-├── artifacts/          # Compiled contracts (generated)
-├── cache/              # Hardhat cache (generated)
-├── typechain-types/    # TypeChain types (generated)
-├── hardhat.config.ts   # Hardhat configuration
-├── tsconfig.json       # TypeScript configuration
-└── package.json        # Dependencies and scripts
-```
-
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-bun install
-```
-
-### 2. Compile Contracts
-
-```bash
+# Compile contracts
 bun run compile
+
+# Run tests
+bun run test
+
+# Run with coverage
+bun run test:coverage
 ```
 
-### 3. Run Tests
+## Quick Start (Local Development)
+
+Follow these steps to run the game locally:
+
+### 1. Start Local Blockchain
 
 ```bash
-bun test
+# Terminal 1 - Start Hardhat node
+bun run node
 ```
 
----
+### 2. Deploy Contracts
 
-## Configuration (Hardhat Vars)
+```bash
+# Terminal 2 - Deploy to local network
+bun run deploy:local
+```
 
-This project uses **Hardhat vars** instead of `.env` files for secure configuration.
+Note the deployed contract addresses from the output.
+
+### 3. Configure Frontend
+
+```bash
+cd frontend
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your deployed contract addresses
+# VITE_TOKEN_ADDRESS=0x...
+# VITE_GAME_ADDRESS=0x...
+# VITE_FACTORY_ADDRESS=0x...
+```
+
+### 4. Mint Test Tokens
+
+```bash
+# From project root
+RECIPIENT=your_wallet_address AMOUNT=10000 npx hardhat run scripts/mint-tokens.ts --network localhost
+```
+
+### 5. Start Frontend
+
+```bash
+cd frontend
+bun install
+bun run dev
+```
+
+Open http://localhost:5173 in your browser.
+
+### 6. Connect Wallet
+
+- Import a Hardhat test account to MetaMask (private keys shown when running `bun run node`)
+- Connect to localhost:8545 network
+
+## Deployment
 
 ### Setting Variables
 
@@ -78,231 +149,202 @@ bunx hardhat vars set DEPLOYER_PRIVATE_KEY
 # Required for contract verification
 bunx hardhat vars set ETHERSCAN_API_KEY     # For Ethereum networks
 bunx hardhat vars set BASESCAN_API_KEY      # For Base networks
-
-# Optional: Custom RPC URLs (defaults provided)
-bunx hardhat vars set SEPOLIA_RPC_URL
-bunx hardhat vars set BASE_SEPOLIA_RPC_URL
-bunx hardhat vars set MAINNET_RPC_URL
-bunx hardhat vars set BASE_RPC_URL
-
-# Optional: For gas reporting in USD
-bunx hardhat vars set COINMARKETCAP_API_KEY
 ```
 
-### Viewing Variables
+### Deploy Commands
 
 ```bash
-bunx hardhat vars list
+# Local development
+bun run node              # Start local node
+bun run deploy:local      # Deploy to local
+
+# Testnets
+bun run deploy:sepolia        # Ethereum Sepolia
+bun run deploy:base-sepolia   # Base Sepolia
+
+# Mainnet
+bun run deploy:mainnet    # Ethereum Mainnet
+bun run deploy:base       # Base Mainnet
 ```
 
-### Deleting Variables
+## Usage
+
+### For Players
+
+```solidity
+// 1. Approve tokens
+tlsmToken.approve(gameAddress, amount);
+
+// 2. Start session
+talismanGame.startSession();
+
+// 3. Play the game...
+
+// 4. End session (after minimum duration)
+talismanGame.endSession();
+
+// 5. Wait for vesting, then claim
+talismanGame.claimRewards();
+```
+
+### For Gasless Transactions (ERC-4337)
+
+Players can use smart accounts for gasless gameplay:
+
+```solidity
+// Create smart account
+factory.createAccount(playerAddress, 0);
+
+// Execute game actions through smart account
+account.execute(gameAddress, 0, abi.encodeCall(ITalismanGame.startSession));
+```
+
+## Testing
 
 ```bash
-bunx hardhat vars delete VARIABLE_NAME
+# Run all tests
+bun run test
+
+# Run with gas reporting
+bun run test:gas
+
+# Run with coverage
+bun run test:coverage
 ```
 
----
+### Test Coverage
 
-## Deployment Guide
+- Token: minting, transfers, burning
+- Game: sessions, rewards, vesting, admin functions
+- Account: creation, execution, batch calls
+- Paymaster: deposits, limits, configuration
+- Integration: complete user flows
 
-### Available Networks
+## Project Structure
 
-| Network      | Chain ID | Type       | Command                       |
-|--------------|----------|------------|-------------------------------|
-| hardhat      | 31337    | Local      | `bun test` (in-memory)        |
-| localhost    | 31337    | Local      | `bun run deploy:local`        |
-| sepolia      | 11155111 | Testnet    | `bun run deploy:sepolia`      |
-| baseSepolia  | 84532    | Testnet    | `bun run deploy:base-sepolia` |
-| mainnet      | 1        | Production | `bun run deploy:mainnet`      |
-| base         | 8453     | Production | `bun run deploy:base`         |
+```
+contracts/
+├── interfaces/
+│   ├── IEntryPoint.sol
+│   ├── ITalismanAccount.sol
+│   └── ITalismanGame.sol
+├── token/
+│   └── TalismanToken.sol
+├── account-abstraction/
+│   ├── TalismanAccount.sol
+│   ├── TalismanAccountFactory.sol
+│   └── TalismanPaymaster.sol
+├── game/
+│   └── TalismanGame.sol
+└── mocks/
+    └── MockEntryPoint.sol
 
----
+test/
+├── TalismanToken.test.ts
+├── TalismanGame.test.ts
+├── TalismanAccount.test.ts
+├── TalismanPaymaster.test.ts
+└── integration/
+    └── FullFlow.test.ts
 
-### Local Deployment
-
-Deploy to a local Hardhat node for development and testing.
-
-#### Step 1: Start Local Node
-
-```bash
-bun run node
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── game/           # Game canvas & session controls
+│   │   ├── layout/         # Header, Footer
+│   │   ├── vesting/        # Vesting UI components
+│   │   └── wallet/         # Connect button, token balance
+│   ├── config/             # Wagmi & contract configuration
+│   ├── constants/          # ABIs, game constants
+│   ├── hooks/              # React hooks for contracts
+│   ├── pages/              # GamePage, VestingPage
+│   └── utils/              # Canvas drawing, formatting
+├── .env.example            # Environment template
+└── package.json
 ```
 
-This starts a local Ethereum node at `http://127.0.0.1:8545` with pre-funded accounts.
+## Security Features
 
-#### Step 2: Deploy (in a new terminal)
+- **ReentrancyGuard** - Prevents reentrancy attacks
+- **Pausable** - Emergency stop mechanism
+- **SafeERC20** - Safe token transfers
+- **Checks-Effects-Interactions** - Proper state management
+- **Reward Pool Validation** - Ensures sufficient rewards before sessions
 
-```bash
-bun run deploy:local
+## Admin Functions
+
+```solidity
+// Game configuration
+game.setSessionCost(newCost);
+game.setRewardRate(newRate);
+game.setVestingDuration(newDuration);
+game.setMaxSessionDuration(newMax);
+
+// Reward pool management
+game.depositRewardPool(amount);
+game.withdrawRewardPool(amount);
+
+// Emergency controls
+game.pause();
+game.unpause();
 ```
 
----
+## Networks
 
-### Sepolia Testnet Deployment
-
-Deploy to Ethereum Sepolia testnet.
-
-#### Prerequisites
-
-1. Get Sepolia ETH from a faucet:
-   - https://sepoliafaucet.com
-   - https://www.alchemy.com/faucets/ethereum-sepolia
-
-2. Set your deployer private key:
-   ```bash
-   bunx hardhat vars set DEPLOYER_PRIVATE_KEY
-   ```
-
-3. (Optional) Set a custom RPC:
-   ```bash
-   bunx hardhat vars set SEPOLIA_RPC_URL
-   ```
-
-#### Deploy
-
-```bash
-bun run deploy:sepolia
-```
-
-#### Verify Contract
-
-```bash
-bunx hardhat verify --network sepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
-```
-
----
-
-### Base Sepolia Testnet Deployment
-
-Deploy to Base Sepolia testnet.
-
-#### Prerequisites
-
-1. Get Base Sepolia ETH:
-   - Bridge from Sepolia: https://bridge.base.org
-   - Or use faucet: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
-
-2. Set your deployer private key:
-   ```bash
-   bunx hardhat vars set DEPLOYER_PRIVATE_KEY
-   ```
-
-3. (Optional) Set BaseScan API key for verification:
-   ```bash
-   bunx hardhat vars set BASESCAN_API_KEY
-   ```
-
-#### Deploy
-
-```bash
-bun run deploy:base-sepolia
-```
-
-#### Verify Contract
-
-```bash
-bun run verify:base-sepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
-```
-
----
-
-### Production Deployment (Mainnet)
-
-Deploy to Ethereum mainnet or Base mainnet.
-
-#### Prerequisites
-
-1. **IMPORTANT**: Ensure you have real ETH in your deployer wallet
-2. Double-check your contract code and tests
-3. Consider a security audit for production contracts
-
-4. Set your deployer private key:
-   ```bash
-   bunx hardhat vars set DEPLOYER_PRIVATE_KEY
-   ```
-
-5. Set API keys for verification:
-   ```bash
-   bunx hardhat vars set ETHERSCAN_API_KEY   # For Ethereum mainnet
-   bunx hardhat vars set BASESCAN_API_KEY    # For Base mainnet
-   ```
-
-#### Deploy to Ethereum Mainnet
-
-```bash
-bun run deploy:mainnet
-```
-
-#### Deploy to Base Mainnet
-
-```bash
-bun run deploy:base
-```
-
-#### Verify on Mainnet
-
-```bash
-# Ethereum
-bun run verify:mainnet <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
-
-# Base
-bun run verify:base <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
-```
-
----
+| Network | Chain ID | Type |
+|---------|----------|------|
+| Hardhat | 31337 | Development |
+| Sepolia | 11155111 | Testnet |
+| Base Sepolia | 84532 | Testnet |
+| Ethereum | 1 | Mainnet |
+| Base | 8453 | Mainnet |
 
 ## Available Scripts
 
-| Script                      | Description                           |
-|-----------------------------|---------------------------------------|
-| `bun run compile`           | Compile contracts                     |
-| `bun test`                  | Run tests                             |
-| `bun run test:coverage`     | Run tests with coverage report        |
-| `bun run test:gas`          | Run tests with gas reporting          |
-| `bun run node`              | Start local Hardhat node              |
-| `bun run deploy:local`      | Deploy to localhost                   |
-| `bun run deploy:sepolia`    | Deploy to Ethereum Sepolia            |
-| `bun run deploy:base-sepolia` | Deploy to Base Sepolia              |
-| `bun run deploy:mainnet`    | Deploy to Ethereum mainnet            |
-| `bun run deploy:base`       | Deploy to Base mainnet                |
-| `bun run clean`             | Clean build artifacts                 |
-| `bun run typechain`         | Generate TypeChain types              |
+### Smart Contracts (root)
 
----
+| Script | Description |
+|--------|-------------|
+| `bun run compile` | Compile contracts |
+| `bun run test` | Run tests |
+| `bun run test:coverage` | Run tests with coverage |
+| `bun run test:gas` | Run tests with gas reporting |
+| `bun run node` | Start local Hardhat node |
+| `bun run deploy:local` | Deploy to localhost |
+| `bun run deploy:sepolia` | Deploy to Sepolia |
+| `bun run deploy:base-sepolia` | Deploy to Base Sepolia |
+| `bun run deploy:mainnet` | Deploy to Ethereum mainnet |
+| `bun run deploy:base` | Deploy to Base mainnet |
+| `bun run clean` | Clean build artifacts |
 
-## Adding Your Own Contracts
+### Frontend (frontend/)
 
-1. Create your contract in `contracts/`
-2. Update `scripts/deploy.ts` for your contract
-3. Write tests in `test/`
-4. Compile and test:
-   ```bash
-   bun run compile
-   bun test
-   ```
+| Script | Description |
+|--------|-------------|
+| `bun run dev` | Start development server |
+| `bun run build` | Build for production |
+| `bun run lint` | Run ESLint |
+| `bun run preview` | Preview production build |
 
----
+## Environment Variables
 
-## Security Considerations
+### Frontend (.env)
 
-- Never commit private keys
-- Use Hardhat vars (not `.env`) for sensitive data
-- Audit contracts before mainnet deployment
-- Test thoroughly on testnets first
-- Use OpenZeppelin contracts when possible
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_TOKEN_ADDRESS` | TalismanToken contract address | `0xA51c...` |
+| `VITE_GAME_ADDRESS` | TalismanGame contract address | `0x0B30...` |
+| `VITE_FACTORY_ADDRESS` | TalismanAccountFactory address | `0x9A67...` |
+| `VITE_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID | (from cloud.walletconnect.com) |
+| `VITE_LOCALHOST_RPC_URL` | Local RPC URL | `http://127.0.0.1:8545` |
 
----
+## Tech Stack
 
-## Resources
-
-- [Hardhat Documentation](https://hardhat.org/docs)
-- [Solidity Documentation](https://docs.soliditylang.org)
-- [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts)
-- [Bun Documentation](https://bun.sh/docs)
-- [Etherscan](https://etherscan.io)
-- [Basescan](https://basescan.org)
-
----
+- **Smart Contracts**: Solidity, Hardhat, OpenZeppelin
+- **Account Abstraction**: ERC-4337
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS
+- **Web3**: wagmi, viem, RainbowKit
+- **Canvas**: HTML5 Canvas for game rendering
 
 ## License
 
