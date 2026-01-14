@@ -4,7 +4,7 @@ async function main() {
   const recipient = process.env.RECIPIENT || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'; // Account #1 by default
   const amount = ethers.parseEther(process.env.AMOUNT || '10000'); // 10,000 TLSM by default
 
-  const tokenAddress = '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0';
+  const tokenAddress = '0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9';
 
   console.log('Minting tokens...');
   console.log('Token:', tokenAddress);

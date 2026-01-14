@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSmartAccount } from '../../hooks';
 
 function shortenAddress(address: string): string {
@@ -14,6 +15,14 @@ export function SmartAccountStatus() {
     isCreateSuccess,
     createError,
   } = useSmartAccount();
+  const [copied, setCopied] = useState(false);
+
+  const copyAddress = async () => {
+    if (!accountAddress) return;
+    await navigator.clipboard.writeText(accountAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (!isConnected) {
     return null;
@@ -57,9 +66,13 @@ export function SmartAccountStatus() {
         <div className="w-2 h-2 bg-green-400 rounded-full"></div>
         <div>
           <p className="text-xs text-gray-400">Smart Account</p>
-          <p className="text-sm font-mono text-green-400">
-            {accountAddress ? shortenAddress(accountAddress) : '...'}
-          </p>
+          <button
+            onClick={copyAddress}
+            className="text-sm font-mono text-green-400 hover:text-green-300 transition-colors cursor-pointer"
+            title="Click to copy address"
+          >
+            {copied ? 'Copied!' : accountAddress ? shortenAddress(accountAddress) : '...'}
+          </button>
         </div>
       </div>
     </div>

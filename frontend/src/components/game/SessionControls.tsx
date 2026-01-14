@@ -20,6 +20,8 @@ export function SessionControls() {
     startSession,
     isStarting,
     isStartSuccess,
+    startError,
+    resetStart,
   } = useGameSession();
 
   const [showApproval, setShowApproval] = useState(false);
@@ -175,6 +177,21 @@ export function SessionControls() {
             'Start Session'
           )}
         </button>
+      )}
+
+      {/* Error display */}
+      {startError && (
+        <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <div className="flex justify-between items-start">
+            <p className="text-sm text-red-400">{startError.message}</p>
+            <button
+              onClick={resetStart}
+              className="text-red-400 hover:text-red-300 text-xs ml-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Help text */}

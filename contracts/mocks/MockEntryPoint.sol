@@ -35,8 +35,18 @@ contract MockEntryPoint is IEntryPoint {
             // Increment nonce
             _nonces[op.sender]++;
 
-            // Execute the call
-            (bool success, ) = op.sender.call(op.callData);
+            // Execute the call - revert if it fails
+            (bool success, bytes memory result) = op.sender.call(op.callData);
+            if (!success) {
+                // Bubble up the revert reason
+                if (result.length > 0) {
+                    assembly {
+                        revert(add(result, 32), mload(result))
+                    }
+                } else {
+                    revert("MockEntryPoint: inner call failed");
+                }
+            }
 
             emit UserOperationEvent(
                 userOpHash,

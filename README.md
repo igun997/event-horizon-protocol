@@ -116,14 +116,7 @@ cp .env.example .env
 # VITE_FACTORY_ADDRESS=0x...
 ```
 
-### 4. Mint Test Tokens
-
-```bash
-# From project root
-RECIPIENT=your_wallet_address AMOUNT=10000 npx hardhat run scripts/mint-tokens.ts --network localhost
-```
-
-### 5. Start Frontend
+### 4. Start Frontend
 
 ```bash
 cd frontend
@@ -133,10 +126,21 @@ bun run dev
 
 Open http://localhost:5173 in your browser.
 
-### 6. Connect Wallet
+### 5. Connect Wallet & Create Smart Account
 
-- Import a Hardhat test account to MetaMask (private keys shown when running `bun run node`)
-- Connect to localhost:8545 network
+1. Import a Hardhat test account to MetaMask (private keys shown when running `bun run node`)
+2. Connect to localhost:8545 network
+3. Click "Create Smart Account" in the UI (one-time setup)
+4. Click the smart account address to copy it
+
+### 6. Mint Test Tokens to Smart Account
+
+```bash
+# From project root - use your smart account address (NOT your EOA wallet address)
+RECIPIENT=<smart_account_address> AMOUNT=10000 bun run hardhat run scripts/mint-tokens.ts --network localhost
+```
+
+**Important:** Tokens must be minted to your smart account address, not your EOA wallet. The smart account is what interacts with the game contracts.
 
 ## Deployment
 
