@@ -360,6 +360,104 @@ game.unpause();
 - **Web3**: wagmi, viem, RainbowKit
 - **Canvas**: HTML5 Canvas for game rendering
 
+## Roadmap
+
+### Phase 1: Production ERC-4337
+
+Current implementation uses MockEntryPoint for local development. Production deployment requires:
+
+| Task | Description | Status |
+|------|-------------|--------|
+| Canonical EntryPoint | Use official ERC-4337 EntryPoint (v0.7: `0x0000000071727De22E5E9d8BAf0edAc6f37da032`) | Planned |
+| Bundler Integration | Integrate with bundler services (Pimlico, Alchemy, Stackup) or run self-hosted | Planned |
+| Paymaster Verification | Add proper UserOp validation in TalismanPaymaster | Planned |
+| Gas Estimation | Implement proper gas estimation for UserOperations | Planned |
+
+### Phase 2: Multi-Chain Deployment
+
+Deploy to multiple EVM chains with isolated instances:
+
+| Chain | Type | EntryPoint Support |
+|-------|------|-------------------|
+| Ethereum | Mainnet | Yes |
+| Base | L2 | Yes |
+| Arbitrum | L2 | Yes |
+| Optimism | L2 | Yes |
+| Polygon | Sidechain | Yes |
+
+### Phase 3: Cross-Chain Integration
+
+Enable seamless cross-chain gameplay and token transfers:
+
+```
+┌─────────────┐     LayerZero/CCIP      ┌─────────────┐
+│  Chain A    │◄────────────────────────►│  Chain B    │
+│             │                          │             │
+│ TalismanOFT │    Token Bridge          │ TalismanOFT │
+│ TalismanGame│    Message Passing       │ TalismanGame│
+└─────────────┘                          └─────────────┘
+```
+
+#### 3.1 Omnichain Token (LayerZero OFT)
+
+Convert TLSM to an Omnichain Fungible Token:
+
+```solidity
+// TalismanOFT.sol - LayerZero OFT implementation
+contract TalismanOFT is OFT {
+    constructor(
+        address _lzEndpoint,
+        address _delegate
+    ) OFT("Talisman", "TLSM", _lzEndpoint, _delegate) {}
+}
+```
+
+**Benefits:**
+- Native token transfers between chains
+- No wrapped tokens or liquidity pools needed
+- Unified token supply across all chains
+
+#### 3.2 Cross-Chain Messaging
+
+Sync game state and leaderboards across chains:
+
+| Feature | Protocol | Description |
+|---------|----------|-------------|
+| Leaderboard Sync | Chainlink CCIP | Aggregate scores across chains |
+| Achievement NFTs | LayerZero ONFT | Cross-chain achievement badges |
+| Tournament System | Hyperlane | Multi-chain tournaments |
+
+#### 3.3 Chain Abstraction
+
+Ultimate goal - players don't need to know which chain they're on:
+
+- **Unified Balance**: Show total TLSM across all chains
+- **Auto-Bridge**: Automatically bridge tokens when needed
+- **Best Chain Selection**: Route transactions to cheapest/fastest chain
+- **Single Smart Account**: One account address across all chains (CREATE2)
+
+### Phase 4: Advanced Features
+
+| Feature | Description |
+|---------|-------------|
+| Session Keys | Temporary keys for gameplay without signing each tx |
+| Social Recovery | Recover smart account via trusted contacts |
+| Batch Transactions | Combine approve + start session in one tx |
+| Gasless Onboarding | Sponsor first smart account creation |
+| Mobile App | React Native with WalletConnect |
+| Multiplayer Mode | Real-time competitive gameplay |
+| NFT Rewards | Achievement-based NFT minting |
+
+### Implementation Priority
+
+```
+Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4
+   │           │           │           │
+   ▼           ▼           ▼           ▼
+Production  Multi-Chain  Cross-Chain  Advanced
+ERC-4337    Deployment   Integration  Features
+```
+
 ## License
 
 MIT
